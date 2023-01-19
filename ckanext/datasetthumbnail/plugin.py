@@ -1,6 +1,5 @@
 import sys
 import cgi
-import pylons.config as config
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckan.common import c
@@ -8,7 +7,7 @@ import requests
 import tempfile
 from PIL import Image
 from PIL import PngImagePlugin, JpegImagePlugin
-from StringIO import StringIO
+from io import StringIO
 import ckanext
 
 def thumbnail_url(package_id):
@@ -25,10 +24,10 @@ def thumbnail_url(package_id):
     :rtype: string
     '''
 
-    cfg_show = config.get('ckan.datasetthumbnail.show_thumbnail', False)
+    cfg_show = toolkit.config.get('ckan.datasetthumbnail.show_thumbnail', False)
     show_thumbnail = toolkit.asbool(cfg_show)
 
-    cfg_auto_generate = config.get('ckan.datasetthumbnail.auto_generate', False)
+    cfg_auto_generate = toolkit.config.get('ckan.datasetthumbnail.auto_generate', False)
     auto_generate = toolkit.asbool(cfg_auto_generate)
 
     if not show_thumbnail:
@@ -62,11 +61,11 @@ def create_thumbnail(package_id, resource_id=None, width=None, height=None):
         return None
 
     if width == None:
-        cfg_width = config.get('ckan.datasetthumbnail.thumbnail_width', 140)
+        cfg_width = toolkit.config.get('ckan.datasetthumbnail.thumbnail_width', 140)
         width = toolkit.asint(cfg_width)
 
     if height == None:
-        cfg_height = config.get('ckan.datasetthumbnail.thumbnail_height', int(width * 1.415))
+        cfg_height = toolkit.config.get('ckan.datasetthumbnail.thumbnail_height', int(width * 1.415))
         height = toolkit.asint(cfg_height)
 
     package = toolkit.get_action('package_show')(
@@ -111,7 +110,7 @@ def create_thumbnail(package_id, resource_id=None, width=None, height=None):
             image = None
 
             try:
-                image = Image.open(original_fp)
+                image = Image.open(original_fp.buffer)
             except IOError:
                 #if an image can't be parsed from the response...
                 return None 
@@ -120,7 +119,7 @@ def create_thumbnail(package_id, resource_id=None, width=None, height=None):
 
             thumbnail_fp = StringIO() 
             thumbnail_fp.name = 'thumbnail.png'
-            image.save(thumbnail_fp, format='PNG')
+            image.save(thumbnail_fp.buffer, format='PNG')
 
             thumbnail_resource = {}
             thumbnail_resource['package_id'] = package['id']
@@ -169,5 +168,5 @@ class DatasetthumbnailPlugin(plugins.SingletonPlugin):
     def get_actions(self):
         return {
             'create_thumbnail':
-            ckanext.datasetthumbnail.plugin.create_thumbnail,
+            create_thumbnail,
         }
