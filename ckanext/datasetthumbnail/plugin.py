@@ -39,9 +39,10 @@ def thumbnail_url(package_id):
         return '/image-icon.png'
 
     package = toolkit.get_action('package_show')(data_dict={'id': package_id})
-
+    
+    filename = toolkit.config.get('ckan.datasetthumbnail.thumbnail.filename', 'thumbnail.jpg')
     for resource in package['resources']:
-        if resource['name'] == 'thumbnail.png':
+        if resource['name'] == filename or resource['name'].startswith('thumbnail'):
             return resource['url']
 
     #if there's no thumbnail then automatically generate one and add it to the dataset
@@ -49,12 +50,12 @@ def thumbnail_url(package_id):
 
     if auto_generate:
         if c.user != None and len(c.user) > 0:
-            url = create_thumbnail(package_id)
+            url = create_thumbnail(package_id, filename=filename)
 
-    return url or '/image-icon.png'
+    return url or toolkit.config.get('ckan.datasetthumbnail.fallback_thumbnail', '/image-icon.png')
 
 
-def create_thumbnail(package_id, resource_id=None, width=None, height=None):
+def create_thumbnail(package_id, resource_id=None, width=None, height=None, filename=None):
     '''Creates a thumbnail in a dataset and returns its url
 
     :rtype: string
@@ -133,7 +134,7 @@ def create_thumbnail(package_id, resource_id=None, width=None, height=None):
         thumbnail_fp = BytesIO()
         format = toolkit.config.get('ckan.datasetthumbnail.thumbnail.format', 'JPEG')
         quality = toolkit.asint(toolkit.config.get('ckan.datasetthumbnail.thumbnail.quality', 70))
-        filename = toolkit.config.get('ckan.datasetthumbnail.thumbnail.filename', 'thumbnail.jpg')
+        filename = filename or toolkit.config.get('ckan.datasetthumbnail.thumbnail.filename', 'thumbnail.jpg')
         image.save(thumbnail_fp, format=format, quality=quality)
         thumbnail_fp.name = filename
 

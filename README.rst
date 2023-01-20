@@ -36,7 +36,7 @@ images. The helper function ``thumbnail_url`` can be called from a template, as 
     {% block thumbnail %}
     {% set thumbnail = h.thumbnail_url(package.id) %}
     {% if  thumbnail %}
-        <a href="{{ h.url_for(controller='package', action='read', id=package.name) }}">
+        <a href="{{ h.url_for('%s.read' % package.type, id=package.name) }}">
         <img class="dataset-list-thumbnail" src="{{ thumbnail }}">
         </a>
     {% endif %}
@@ -115,6 +115,10 @@ Config Settings
     # Generated thumbnail filename
     # (optional, default: 'thumbnail.jpg')
     ckan.datasetthumbnail.thumbnail.filename = 'thumbnail.jpg'
+
+    # Fallback thumbnail image URL
+    # (optional, default: '/image-icon.png')
+    ckan.datasetthumbnail.fallback_thumbnail = '/image-icon.png'
 
 
 ------------------------
