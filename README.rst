@@ -100,8 +100,21 @@ Config Settings
     ckan.datasetthumbnail.thumbnail_width = 140
 
     # Generated thumbnail height
-    # (optional, default: int(width * 1.415)
+    # (optional, default: int(width * 1.415))
     ckan.datasetthumbnail.thumbnail_height = 140
+
+    # Generated thumbnail format such as JPEG, PNG,...
+    # See https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
+    # (optional, default: 'JPEG')
+    ckan.datasetthumbnail.thumbnail.format = 'JPEG'
+
+    # Generated thumbnail quality (for JPEG)
+    # (optional, default: int(50))
+    ckan.datasetthumbnail.thumbnail.quality = 75
+
+    # Generated thumbnail filename
+    # (optional, default: 'thumbnail.jpg')
+    ckan.datasetthumbnail.thumbnail.filename = 'thumbnail.jpg'
 
 
 ------------------------

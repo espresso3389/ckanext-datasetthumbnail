@@ -1,14 +1,16 @@
-import sys
-import cgi
+import os
+import logging
+from werkzeug.datastructures import FileStorage as FlaskFileStorage
+import ckan.lib.uploader as uploader
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 from ckan.common import c
 import requests
-import tempfile
 from PIL import Image
 from PIL import PngImagePlugin, JpegImagePlugin
-from io import StringIO
-import ckanext
+from io import StringIO, BytesIO
+
+logger = logging.getLogger(__name__)
 
 def thumbnail_url(package_id):
     '''Returns the url of a thumbnail for a dataset. 
@@ -84,67 +86,83 @@ def create_thumbnail(package_id, resource_id=None, width=None, height=None):
                 resource = pkg_resource
                 break
 
+    image = None
+    original_fp = None
 
     if resource != None:
         headers = {}
         if resource['url_type'] == 'upload':
-            if hasattr(c, 'userobj') and hasattr(c.userobj, 'apikey'):
-                headers['Authorization'] = c.userobj.apikey
-
-        try:
-            response = requests.get(resource['url'], headers=headers, stream=True)
-        except requests.exceptions.RequestException:
-            # Silently fail on any request exception on the basis that it's
-            # better to have a working page with missing thumbnails than a
-            # broken one.
-            return
-
-
-        if response.status_code == 200:
-            original_fp = StringIO()  #create an in-memory file object in which to save the image
-
-            for chunk in response.iter_content(1024):
-                original_fp.write(chunk)
-            original_fp.flush()
-
-            image = None
+            upload = uploader.get_resource_uploader(resource)
+            filepath = upload.get_path(resource[u'id'])
+            # filepath = get_path(resource['id'])
 
             try:
-                image = Image.open(original_fp.buffer)
+                image = Image.open(filepath)
             except IOError:
                 #if an image can't be parsed from the response...
-                return None 
+                return None
 
-            image.thumbnail((width, height))
+        else:
+            try:
+                response = requests.get(resource['url'], headers=headers, stream=True)
+            except requests.exceptions.RequestException:
+                # Silently fail on any request exception on the basis that it's
+                # better to have a working page with missing thumbnails than a
+                # broken one.
+                return
 
-            thumbnail_fp = StringIO() 
-            thumbnail_fp.name = 'thumbnail.png'
-            image.save(thumbnail_fp.buffer, format='PNG')
+            if response.status_code == 200:
+                original_fp = StringIO()  #create an in-memory file object in which to save the image
 
-            thumbnail_resource = {}
-            thumbnail_resource['package_id'] = package['id']
-            thumbnail_resource['url'] = 'thumbnail.png'
-            thumbnail_resource['url_type'] = 'upload'
-            thumbnail_resource['format'] = 'png'
-            thumbnail_resource['name'] = 'thumbnail.png'
-            thumbnail_resource['upload'] = _UploadLocalFileStorage(thumbnail_fp)
+                logger.info('Loading image from %s', resource['url'])
+                for chunk in response.iter_content(1024 * 32):
+                    original_fp.write(chunk)
+                original_fp.flush()
 
-            created_resource = toolkit.get_action('resource_create')(context={'ignore_auth': True}, data_dict=thumbnail_resource)
-            thumbnail_fp.close()
+                try:
+                    image = Image.open(original_fp.buffer)
+                except IOError:
+                    #if an image can't be parsed from the response...
+                    return None
+            
+        if image == None:
+            return None
+
+        image.thumbnail((width, height))
+
+        thumbnail_fp = BytesIO()
+        format = toolkit.config.get('ckan.datasetthumbnail.thumbnail.format', 'JPEG')
+        quality = toolkit.asint(toolkit.config.get('ckan.datasetthumbnail.thumbnail.quality', 70))
+        filename = toolkit.config.get('ckan.datasetthumbnail.thumbnail.filename', 'thumbnail.jpg')
+        image.save(thumbnail_fp, format=format, quality=quality)
+        thumbnail_fp.name = filename
+
+        thumbnail_resource = {}
+        thumbnail_resource['package_id'] = package['id']
+        thumbnail_resource['url'] = filename
+        thumbnail_resource['url_type'] = 'upload'
+        thumbnail_resource['format'] = format.lower()
+        thumbnail_resource['name'] = thumbnail_fp.name
+        thumbnail_resource['upload'] = FlaskFileStorage(stream=thumbnail_fp)
+
+        created_resource = toolkit.get_action('resource_create')(context={'ignore_auth': True}, data_dict=thumbnail_resource)
+        thumbnail_fp.close()
+        if (original_fp != None):
             original_fp.close()
 
-            return created_resource['url']
+        return created_resource['url']
 
     return None
 
+def get_directory(id):
+    directory = os.path.join('/var/lib/ckan/resources/',
+                                id[0:3], id[3:6])
+    return directory
 
-class _UploadLocalFileStorage(cgi.FieldStorage):
-    def __init__(self, fp, *args, **kwargs):
-        self.name = fp.name
-        self.filename = fp.name
-        self.file = fp
-
-
+def get_path(id):
+    directory = get_directory(id)
+    filepath = os.path.join(directory, id[6:])
+    return filepath
 
 class DatasetthumbnailPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
