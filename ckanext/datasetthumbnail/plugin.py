@@ -26,34 +26,36 @@ def thumbnail_url(package_id):
     :rtype: string
     '''
 
-    cfg_show = toolkit.config.get('ckan.datasetthumbnail.show_thumbnail', False)
-    show_thumbnail = toolkit.asbool(cfg_show)
+    try:
+        cfg_show = toolkit.config.get('ckan.datasetthumbnail.show_thumbnail', False)
+        show_thumbnail = toolkit.asbool(cfg_show)
 
-    cfg_auto_generate = toolkit.config.get('ckan.datasetthumbnail.auto_generate', False)
-    auto_generate = toolkit.asbool(cfg_auto_generate)
+        cfg_auto_generate = toolkit.config.get('ckan.datasetthumbnail.auto_generate', False)
+        auto_generate = toolkit.asbool(cfg_auto_generate)
 
-    if not show_thumbnail:
+        if not show_thumbnail:
+            return None
+
+        if package_id == None or len(package_id) == 0:
+            return '/image-icon.png'
+
+        package = toolkit.get_action('package_show')(data_dict={'id': package_id})
+        
+        filename = toolkit.config.get('ckan.datasetthumbnail.thumbnail.filename', 'thumbnail.jpg')
+        for resource in package['resources']:
+            if resource['name'] == filename or resource['name'].startswith('thumbnail'):
+                return resource['url']
+
+        #if there's no thumbnail then automatically generate one and add it to the dataset
+        url = None
+
+        if auto_generate:
+            if c.user != None and len(c.user) > 0:
+                url = create_thumbnail(package_id, filename=filename)
+
+        return url or toolkit.config.get('ckan.datasetthumbnail.fallback_thumbnail', '/image-icon.png')
+    except Exception:
         return None
-
-    if package_id == None or len(package_id) == 0:
-        return '/image-icon.png'
-
-    package = toolkit.get_action('package_show')(data_dict={'id': package_id})
-    
-    filename = toolkit.config.get('ckan.datasetthumbnail.thumbnail.filename', 'thumbnail.jpg')
-    for resource in package['resources']:
-        if resource['name'] == filename or resource['name'].startswith('thumbnail'):
-            return resource['url']
-
-    #if there's no thumbnail then automatically generate one and add it to the dataset
-    url = None
-
-    if auto_generate:
-        if c.user != None and len(c.user) > 0:
-            url = create_thumbnail(package_id, filename=filename)
-
-    return url or toolkit.config.get('ckan.datasetthumbnail.fallback_thumbnail', '/image-icon.png')
-
 
 def create_thumbnail(package_id, resource_id=None, width=None, height=None, filename=None):
     '''Creates a thumbnail in a dataset and returns its url
