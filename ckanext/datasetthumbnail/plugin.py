@@ -12,7 +12,7 @@ from io import StringIO, BytesIO
 
 logger = logging.getLogger(__name__)
 
-def thumbnail_url(package_id):
+def datasetthumbnail_url(package_id):
     '''Returns the url of a thumbnail for a dataset. 
 
     Looks for a resource "thumbnail.png" in a dataset.
@@ -40,24 +40,24 @@ def thumbnail_url(package_id):
             return '/image-icon.png'
 
         package = toolkit.get_action('package_show')(data_dict={'id': package_id})
-        
+
+        thumb_url = get_extra(package, 'thumb_url')
+        if thumb_url:
+            return thumb_url
+
         filename = toolkit.config.get('ckan.datasetthumbnail.thumbnail.filename', 'thumbnail.jpg')
-        for resource in package['resources']:
-            if resource['name'] == filename or resource['name'].startswith('thumbnail'):
-                return resource['url']
 
         #if there's no thumbnail then automatically generate one and add it to the dataset
         url = None
-
         if auto_generate:
             if c.user != None and len(c.user) > 0:
-                url = create_thumbnail(package_id, filename=filename)
+                url = datasetthumbnail_create(package_id, filename=filename)
 
         return url or toolkit.config.get('ckan.datasetthumbnail.fallback_thumbnail', '/image-icon.png')
     except Exception:
         return None
 
-def create_thumbnail(package_id, resource_id=None, width=None, height=None, filename=None):
+def datasetthumbnail_create(package_id, resource_id=None, width=None, height=None, filename=None):
     '''Creates a thumbnail in a dataset and returns its url
 
     :rtype: string
@@ -77,11 +77,14 @@ def create_thumbnail(package_id, resource_id=None, width=None, height=None, file
         context={'ignore_auth': True}, 
         data_dict={'id': package_id})
 
-    resource = None    
+    if resource_id == None:
+        resource_id = get_extra(package, 'datasetthumbnail_for_res_id')
+
+    resource = None
     if resource_id != None:
         resource = toolkit.get_action('resource_show')(
             context={'ignore_auth': True}, 
-            data_dict={'id': resource_id})        
+            data_dict={'id': resource_id})
 
     if resource == None:
         for pkg_resource in package['resources']:
@@ -153,9 +156,46 @@ def create_thumbnail(package_id, resource_id=None, width=None, height=None, file
         if (original_fp != None):
             original_fp.close()
 
+        package = toolkit.get_action('package_show')(
+            context={'ignore_auth': True}, 
+            data_dict={'id': package['id']})
+        
+        # delete pre-existing thumbnail resources...
+        for i in reversed(range(len(package['resources']))):
+            pkg_resource = package['resources'][i]
+            if pkg_resource['name'] == filename and pkg_resource['id'] != created_resource['id']:
+                del package['resources'][i]
+
+        update_extra(package, 'thumb_url', created_resource['url'])
+        update_extra(package, 'thumb_for_res', resource['id'])
+        toolkit.get_action('package_update')(context={'ignore_auth': True}, data_dict=package)
+
         return created_resource['url']
 
     return None
+
+def get_extra(package, key):
+    for field in package['extras']:
+        if (field['key'] == key):
+            return field['value']
+    return None
+
+def update_extra(package, key, value):
+    extras = package['extras']
+    ok = False
+    for i in range(len(extras)):
+        if extras[i]['key'] == key:
+            extras[i]['value'] = value
+            return
+    package['extras'].append({'key': key, 'value': value})
+
+def delete_extra(package, key):
+    extras = package['extras']
+    ok = False
+    for i in range(len(extras)):
+        if extras[i]['key'] == key:
+            del extras[i]
+            return
 
 def get_directory(id):
     directory = os.path.join('/var/lib/ckan/resources/',
@@ -182,12 +222,12 @@ class DatasetthumbnailPlugin(plugins.SingletonPlugin):
     #ITemplateHelpers
     def get_helpers(self):
         return {
-            'thumbnail_url': thumbnail_url
+            'datasetthumbnail_url': datasetthumbnail_url
         }
 
     #IActions
     def get_actions(self):
         return {
-            'create_thumbnail':
-            create_thumbnail,
+            'datasetthumbnail_create':
+            datasetthumbnail_create,
         }

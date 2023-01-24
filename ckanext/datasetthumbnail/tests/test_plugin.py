@@ -12,13 +12,13 @@ class TestThumbnail(custom_helpers.FunctionalTestBaseClass):
     @helpers.change_config('ckan.datasetthumbnail.show_thumbnail', False)
     def test_thumbnails_off(self):
 
-        url = plugin.thumbnail_url(None)
+        url = plugin.datasetthumbnail_url(None)
         assert_equals(url, None)
 
     @helpers.change_config('ckan.datasetthumbnail.show_thumbnail', True)
     def test_no_valid_package_id(self):
 
-        url = plugin.thumbnail_url(None)
+        url = plugin.datasetthumbnail_url(None)
         assert_equals(url, '/image-icon.png')
 
     @helpers.change_config('ckan.datasetthumbnail.show_thumbnail', True)

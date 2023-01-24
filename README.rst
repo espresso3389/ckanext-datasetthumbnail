@@ -29,12 +29,12 @@ ckanext-datasetthumbnail
 ========================
 
 This CKAN extension adds support for generation and display of thumbnail
-images. The helper function ``thumbnail_url`` can be called from a template, as in this example:
+images. The helper function ``datasetthumbnail_url`` can be called from a template, as in this example:
 
 ::
 
     {% block thumbnail %}
-    {% set thumbnail = h.thumbnail_url(package.id) %}
+    {% set thumbnail = h.datasetthumbnail_url(package.id) %}
     {% if  thumbnail %}
         <a href="{{ h.url_for('%s.read' % package.type, id=package.name) }}">
         <img class="dataset-list-thumbnail" src="{{ thumbnail }}">
