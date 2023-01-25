@@ -54,7 +54,8 @@ def datasetthumbnail_url(package_id):
                 url = datasetthumbnail_create(package_id, filename=filename)
 
         return url or toolkit.config.get('ckan.datasetthumbnail.fallback_thumbnail', '/image-icon.png')
-    except Exception:
+    except Exception as e:
+        logger.error('datasetthumbnail_url: %s' % e)
         return None
 
 def datasetthumbnail_create(package_id, resource_id=None, width=None, height=None, filename=None):
@@ -135,6 +136,10 @@ def datasetthumbnail_create(package_id, resource_id=None, width=None, height=Non
             return None
 
         image.thumbnail((width, height))
+
+        # force RGB
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
         thumbnail_fp = BytesIO()
         format = toolkit.config.get('ckan.datasetthumbnail.thumbnail.format', 'JPEG')
