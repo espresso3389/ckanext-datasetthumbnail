@@ -79,7 +79,7 @@ def datasetthumbnail_create(package_id, resource_id=None, width=None, height=Non
         data_dict={'id': package_id})
 
     if resource_id == None:
-        resource_id = get_extra(package, 'datasetthumbnail_for_res_id')
+        resource_id = get_extra(package, 'thumb_for_res_id')
 
     resource = None
     if resource_id != None:
@@ -172,7 +172,7 @@ def datasetthumbnail_create(package_id, resource_id=None, width=None, height=Non
                 del package['resources'][i]
 
         update_extra(package, 'thumb_url', created_resource['url'])
-        update_extra(package, 'thumb_for_res', resource['id'])
+        update_extra(package, 'thumb_for_res_id', resource['id'])
         toolkit.get_action('package_update')(context={'ignore_auth': True}, data_dict=package)
 
         return created_resource['url']
